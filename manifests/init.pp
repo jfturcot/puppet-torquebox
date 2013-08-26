@@ -1,36 +1,12 @@
 class torquebox {
 
-  $tb_home    = "/opt/torquebox"
-  $tb_version = "2.3.2"
-  $tb_download = "http://torquebox.org/release/org/torquebox/torquebox-dist/2.3.2/torquebox-dist-2.3.2-bin.zip"
+  $tb_version   = "3.0.0.beta2"
+  $tb_home      = "/opt/torquebox"
+  $tb_current   = "${tb_home}/current"
+  $tb_download  = "http://torquebox.org/release/org/torquebox/torquebox-dist/${tb_version}/torquebox-dist-${tb_version}-bin.zip"
 
-  package { "openjdk-7-jdk":
+  package { ["openjdk-7-jre", "unzip", "git"]:
     ensure => present
-  }
-
-  package { unzip:
-    ensure  => present
-  }
-
-  exec { "download_tb":
-    command => "wget -O /tmp/torquebox.zip ${tb_download}",
-    path    => $path,
-    creates => "/tmp/torquebox.zip",
-    unless  => "ls /opt | grep torquebox-${tb_version}",
-    require => [Package["openjdk-7-jdk"], User[torquebox]]
-  }
-
-  exec { "unpack_tb":
-    command => "unzip /tmp/torquebox.zip -d /opt",
-    path    => $path,
-    creates => "${tb_home}-${tb_version}",
-    require => [Exec["download_tb"], Package[unzip]]
-  }
-
-  file { $tb_home:
-    ensure  => link,
-    target  => "${tb_home}-${tb_version}",
-    require => Exec["unpack_tb"]
   }
 
   user { "torquebox":
@@ -39,41 +15,66 @@ class torquebox {
     system     => true
   }
 
-  exec { "chown_tb_home":
-    command   => "chown -RH torquebox:torquebox ${tb_home}",
-    path      => $path,
-    require   => [File[$tb_home], User[torquebox]]
-  }
-
-  exec { copy_ssh_key:
-    command   => "cp -R /home/vagrant/.ssh /home/torquebox/.ssh",
-    path      => $path,
-    creates   => "/home/torquebox/.ssh",
-    require   => User[torquebox]
-  }
-
-  file { "/home/torquebox/.ssh":
+  file { $tb_home:
     ensure    => directory,
     owner     => torquebox,
     group     => torquebox,
     recurse   => true,
-    require   => Exec[copy_ssh_key]
+    require   => User[torquebox]
   }
 
-  exec { "upstart_install":
-    cwd       => $tb_home,
-    command   => "${tb_home}/jruby/bin/jruby -S rake torquebox:upstart:install",
-    environment => ["JBOSS_HOME=${tb_home}/jboss", "TORQUEBOX_HOME=${tb_home}",
-                    'SERVER_OPTS="-b=0.0.0.0"'],
-    creates   => "/etc/init/torquebox.conf",
-    require   => [File[$tb_home], User["torquebox"]]
+  exec { "download_tb":
+    command => "wget -O /tmp/torquebox.zip ${tb_download}",
+    path    => $path,
+    creates => "/tmp/torquebox.zip",
+    unless  => "ls ${tb_home} | grep torquebox-${tb_version}",
+    require => [Package["openjdk-7-jre"]]
   }
 
-  exec { "upstart_start":
-    cwd       => $tb_home,
-    command   => "${tb_home}/jruby/bin/jruby -S rake torquebox:upstart:start",
-    environment => ["JBOSS_HOME=${tb_home}/jboss", "TORQUEBOX_HOME=${tb_home}"],
-    require   => Exec["upstart_install"]
+  exec { "unpack_tb":
+    command => "unzip /tmp/torquebox.zip -d ${tb_home}",
+    user    => torquebox,
+    path    => $path,
+    creates => "${tb_home}/torquebox-${tb_version}",
+    require => [Exec["download_tb"], Package[unzip], User[torquebox]]
+  }
+
+  file { $tb_current:
+    ensure  => link,
+    target  => "${tb_home}/torquebox-${tb_version}",
+    require => Exec["unpack_tb"]
+  }
+
+  file { "/etc/profile.d/torquebox.sh":
+    ensure    => file,
+    content   => template("torquebox/torquebox.sh.erb"),
+    require   => File[$tb_current]
+  }
+
+  file { "/etc/default/jboss-as":
+    ensure    => file,
+    content   => template("torquebox/jboss-as.conf.erb"),
+    require   => File["/etc/profile.d/torquebox.sh"],
+  }
+
+  file { "/etc/init.d/jboss-as-standalone":
+    ensure    => file,
+    mode      => 0755,
+    content   => template("torquebox/jboss-as-standalone.erb"),
+    require   => File["/etc/default/jboss-as"]
+  }
+
+  service { "jboss-as-standalone":
+    enable    => true,
+    ensure    => running,
+    hasrestart => true,
+    hasstatus  => true,
+    subscribe  => File['/etc/default/jboss-as'],
+    require   => [
+       File["/etc/default/jboss-as"],
+       File["/etc/init.d/jboss-as-standalone"]
+     ]
   }
 
 }
+
