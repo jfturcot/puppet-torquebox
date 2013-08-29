@@ -5,7 +5,7 @@ class torquebox {
   $tb_current   = "${tb_home}/current"
   $tb_download  = "http://torquebox.org/release/org/torquebox/torquebox-dist/${tb_version}/torquebox-dist-${tb_version}-bin.zip"
 
-  package { ["openjdk-7-jre", "unzip", "git"]:
+  package { ["openjdk-7-jre-headless", "unzip", "git"]:
     ensure => present
   }
 
@@ -28,7 +28,7 @@ class torquebox {
     path    => $path,
     creates => "/tmp/torquebox.zip",
     unless  => "ls ${tb_home} | grep torquebox-${tb_version}",
-    require => [Package["openjdk-7-jre"]]
+    require => [Package["openjdk-7-jre-headless"]]
   }
 
   exec { "unpack_tb":
