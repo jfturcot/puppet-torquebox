@@ -1,6 +1,6 @@
 class torquebox {
 
-  $tb_version   = "3.0.0.beta2"
+  $tb_version   = "3.0.0"
   $tb_home      = "/opt/torquebox"
   $tb_current   = "${tb_home}/current"
   $tb_download  = "http://torquebox.org/release/org/torquebox/torquebox-dist/${tb_version}/torquebox-dist-${tb_version}-bin.zip"
@@ -48,31 +48,22 @@ class torquebox {
   file { "/etc/profile.d/torquebox.sh":
     ensure    => file,
     content   => template("torquebox/torquebox.sh.erb"),
-    require   => File[$tb_current]
+    require   => File[$tb_current],
+    notify    => Service['torquebox'],
   }
 
-  file { "/etc/default/jboss-as":
+  file { "/etc/init/torquebox.conf":
     ensure    => file,
-    content   => template("torquebox/jboss-as.conf.erb"),
-    require   => File["/etc/profile.d/torquebox.sh"],
+    content   => template("torquebox/torquebox.conf.erb"),
+    require   => File["/etc/profile.d/torquebox.sh"]
   }
 
-  file { "/etc/init.d/jboss-as-standalone":
-    ensure    => file,
-    mode      => 0755,
-    content   => template("torquebox/jboss-as-standalone.erb"),
-    require   => File["/etc/default/jboss-as"]
-  }
-
-  service { "jboss-as-standalone":
+  service { "torquebox":
     enable    => true,
     ensure    => running,
-    hasrestart => true,
-    hasstatus  => true,
-    subscribe  => File['/etc/default/jboss-as'],
+    subscribe  => File['/etc/profile.d/torquebox.sh'],
     require   => [
-       File["/etc/default/jboss-as"],
-       File["/etc/init.d/jboss-as-standalone"]
+       File['/etc/profile.d/torquebox.sh'],
      ]
   }
 
