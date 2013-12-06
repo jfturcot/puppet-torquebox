@@ -1,6 +1,6 @@
 class torquebox {
 
-  $tb_version   = "3.0.0"
+  $tb_version   = "3.0.1"
   $tb_home      = "/opt/torquebox"
   $tb_current   = "${tb_home}/current"
   $tb_download  = "http://torquebox.org/release/org/torquebox/torquebox-dist/${tb_version}/torquebox-dist-${tb_version}-bin.zip"
